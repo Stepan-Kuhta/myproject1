@@ -143,12 +143,19 @@ export async function createBooking(data) {
       main_guest_id: data.main_guest_id,
       check_in_date: new Date(data.check_in_date).toISOString().split('T')[0],
       check_out_date: new Date(data.check_out_date).toISOString().split('T')[0],
-      status: data.status || 'confirmed'
+      status: data.status || 'confirmed',
+      price: data.price
     })
   });
   if (!res.ok) {
     const errorData = await res.json();
     throw new Error(errorData.error || "Ошибка при создании бронирования");
   }
+  return res.json();
+}
+// Prices API (ДОБАВЛЕНО)
+export async function getPrices() {
+  const res = await fetch(`${API_URL}/prices`);
+  if (!res.ok) throw new Error("Ошибка при загрузке цен");
   return res.json();
 }

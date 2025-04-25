@@ -15,11 +15,26 @@ export default function BookingPage() {
     const [editingBooking, setEditingBooking] = useState(null);
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
+    const [totalPrice, setTotalPrice] = useState(0);
+
+    // Фиксированные цены для каждого типа номера
+    const roomPrices = {
+        "стандарт": 3000,
+        "улучшенный": 4500,
+        "люкс": 7000,
+        "апартаменты": 10000
+    };
 
     // Загрузка данных
     useEffect(() => {
         loadData();
     }, []);
+
+    useEffect(() => {
+        if (bookingDates.check_in_date && bookingDates.check_out_date && selectedRoom) {
+            calculatePrice();
+        }
+    }, [bookingDates, selectedRoom]);
 
     const loadData = async () => {
         setLoading(true);
@@ -39,6 +54,21 @@ export default function BookingPage() {
         }
     };
 
+    const calculatePrice = () => {
+        if (!selectedRoom || !bookingDates.check_in_date || !bookingDates.check_out_date) return;
+
+        const startDate = new Date(bookingDates.check_in_date);
+        const endDate = new Date(bookingDates.check_out_date);
+        const diffTime = Math.abs(endDate - startDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        // Получаем цену для категории номера (в нижнем регистре для унификации)
+        const roomCategory = selectedRoom.category.toLowerCase();
+        const dailyPrice = roomPrices[roomCategory] || 0;
+        
+        setTotalPrice(dailyPrice * diffDays);
+    };
+
     // Получение статуса номера
     const getRoomStatus = (room) => {
         const activeBooking = bookings.find(b => 
@@ -48,9 +78,14 @@ export default function BookingPage() {
 
         if (!activeBooking) return { status: "available", booking: null };
 
+        // Получаем информацию о гостях
+        const mainGuest = guests.find(g => g.id === activeBooking.main_guest_id);
+        const guestNames = mainGuest ? [mainGuest.name] : [];
+
         return {
             status: activeBooking.status === "confirmed" ? "booked" : "occupied",
-            booking: activeBooking
+            booking: activeBooking,
+            guestNames
         };
     };
 
@@ -93,7 +128,8 @@ export default function BookingPage() {
                 main_guest_id: selectedGuests[0],
                 check_in_date: bookingDates.check_in_date,
                 check_out_date: bookingDates.check_out_date,
-                status: actionType === "booking" ? "confirmed" : "checked_in"
+                status: actionType === "booking" ? "confirmed" : "checked_in",
+                price: totalPrice
             };
 
             if (editingBooking) {
@@ -152,9 +188,6 @@ export default function BookingPage() {
         }
     };
 
-    // Редактирование бронирования
-
-
     const resetForm = () => {
         setSelectedRoom(null);
         setSelectedGuests([]);
@@ -165,16 +198,29 @@ export default function BookingPage() {
         setActionType("");
         setEditingBooking(null);
         setErrors({});
+        setTotalPrice(0);
+    };
+
+    // Получение имен гостей по ID
+    const getGuestNames = (guestIds) => {
+        return guestIds.map(id => {
+            const guest = guests.find(g => g.id === id);
+            return guest ? guest.name : "Неизвестный гость";
+        }).join(", ");
     };
 
     // Отображение информации о номере
     const renderRoomInfo = (room) => {
-        const { status, booking } = getRoomStatus(room);
+        const { status, booking, guestNames } = getRoomStatus(room);
         const statusText = {
             available: "Доступен",
             booked: "Забронирован",
             occupied: "Занят"
         }[status];
+
+        // Получаем цену для категории номера
+        const roomCategory = room.category.toLowerCase();
+        const dailyPrice = roomPrices[roomCategory] || 0;
 
         return (
             <div style={{ 
@@ -187,12 +233,15 @@ export default function BookingPage() {
             }}>
                 <h4>№{room.room_number} - {room.category}</h4>
                 <p>Вместимость: {room.capacity} {room.has_child_bed && " | Детская кровать"}</p>
+                <p>Цена за сутки: {dailyPrice} руб.</p>
                 <p>Статус: <strong>{statusText}</strong></p>
                 
                 {booking && (
                     <div style={{ marginTop: "10px" }}>
+                        <p>Гости: {guestNames}</p>
                         <p>Дата заезда: {new Date(booking.check_in_date).toLocaleDateString()}</p>
                         <p>Дата выезда: {new Date(booking.check_out_date).toLocaleDateString()}</p>
+                        <p>Общая стоимость: {booking.price} руб.</p>
                         
                         <div style={{ display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" }}>
                             {status === "occupied" ? (
@@ -288,6 +337,10 @@ export default function BookingPage() {
     const renderBookingModal = () => {
         if (!selectedRoom) return null;
 
+        // Получаем цену для категории номера
+        const roomCategory = selectedRoom.category.toLowerCase();
+        const dailyPrice = roomPrices[roomCategory] || 0;
+
         return (
             <div style={{
                 position: "fixed",
@@ -315,6 +368,7 @@ export default function BookingPage() {
                     </h3>
                     <p>Номер: {selectedRoom.room_number} ({selectedRoom.category})</p>
                     <p>Вместимость: {selectedRoom.capacity} чел.</p>
+                    <p>Цена за сутки: {dailyPrice} руб.</p>
                     
                     <div style={{ margin: "15px 0" }}>
                         <label style={{ display: "block", marginBottom: "5px" }}>
@@ -401,6 +455,20 @@ export default function BookingPage() {
                             <p style={{ color: "red", fontSize: "0.8rem" }}>{errors.guests}</p>
                         )}
                     </div>
+
+                    {totalPrice > 0 && (
+                        <div style={{ 
+                            margin: "15px 0",
+                            padding: "10px",
+                            backgroundColor: "#f8f9fa",
+                            borderRadius: "4px"
+                        }}>
+                            <h4>Стоимость проживания:</h4>
+                            <p>Цена за сутки: {dailyPrice} руб.</p>
+                            <p>Количество дней: {Math.ceil((new Date(bookingDates.check_out_date) - new Date(bookingDates.check_in_date)) / (1000 * 60 * 60 * 24))}</p>
+                            <p style={{ fontSize: "1.2rem", fontWeight: "bold" }}>Итого: {totalPrice} руб.</p>
+                        </div>
+                    )}
                     
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
                         <button

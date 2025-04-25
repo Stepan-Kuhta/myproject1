@@ -33,7 +33,7 @@ class Booking(db.Model):
 
     room = db.relationship('Room', backref=db.backref('bookings', lazy=True))
     main_guest = db.relationship('Guest', backref=db.backref('main_bookings', lazy=True))
-
+    price = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
 class BookingGuest(db.Model):
     __tablename__ = 'bookingGuests'
 

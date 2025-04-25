@@ -93,21 +93,6 @@ def guest(guest_id):
     db.session.commit()
     return jsonify({"message": "Гость удален"}), 200
 
-# ------- Rooms -------
-# @app.route('/rooms', methods=['GET'])
-# def rooms():
-#     try:
-#         rooms = Room.query.all()
-#         return jsonify([{
-#             'id': r.id,
-#             'room_number': r.room_number,
-#             'category': r.category,
-#             'capacity': r.capacity,
-#             'has_child_bed': r.has_child_bed
-#         } for r in rooms])
-#     except Exception as e:
-#         return jsonify({'error': str(e)}), 500
-
 @app.route('/rooms', methods=['GET', 'POST'])
 def rooms():
     if request.method == 'GET':
@@ -192,15 +177,19 @@ def bookings():
             'check_in_date': b.check_in_date,
             'check_out_date': b.check_out_date,
             'status': b.status,
-            'discount': b.discount
+            'discount': float(b.discount) if b.discount else 0.0,
+            'price': float(b.price) if b.price else 0.0
         } for b in bookings])
 
     # Для POST-запроса
-    booking = Booking(**request.get_json())
+    data = request.get_json()
+    if 'price' not in data:
+        data['price'] = 0.00  # Устанавливаем значение по умолчанию, если цена не указана
+        
+    booking = Booking(**data)
     db.session.add(booking)
     db.session.commit()
     return jsonify({"id": booking.id}), 201
-
 @app.route('/bookings/<int:booking_id>', methods=['GET', 'PUT', 'DELETE'])
 def booking(booking_id):
     booking = Booking.query.get(booking_id)
@@ -208,10 +197,23 @@ def booking(booking_id):
         return jsonify({"error": "Бронирование не найдено"}), 404
 
     if request.method == 'GET':
-        return jsonify(vars(booking))
+        return jsonify({
+            'id': booking.id,
+            'room_id': booking.room_id,
+            'main_guest_id': booking.main_guest_id,
+            'check_in_date': booking.check_in_date,
+            'check_out_date': booking.check_out_date,
+            'status': booking.status,
+            'discount': float(booking.discount) if booking.discount else 0.0,
+            'price': float(booking.price) if booking.price else 0.0
+        })
 
     if request.method == 'PUT':
-        for key, value in request.get_json().items():
+        data = request.get_json()
+        if 'price' not in data:
+            data['price'] = booking.price  # Сохраняем текущее значение, если новое не указано
+            
+        for key, value in data.items():
             setattr(booking, key, value)
         db.session.commit()
         return jsonify({"message": "Бронирование обновлено"}), 200
