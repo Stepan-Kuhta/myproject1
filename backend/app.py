@@ -170,26 +170,52 @@ def room(room_id):
 def bookings():
     if request.method == 'GET':
         bookings = Booking.query.all()
-        return jsonify([{
-            'id': b.id,
-            'room_id': b.room_id,
-            'main_guest_id': b.main_guest_id,
-            'check_in_date': b.check_in_date,
-            'check_out_date': b.check_out_date,
-            'status': b.status,
-            'discount': float(b.discount) if b.discount else 0.0,
-            'price': float(b.price) if b.price else 0.0
-        } for b in bookings])
+        result = []
+        for b in bookings:
+            booking_data = {
+                'id': b.id,
+                'room_id': b.room_id,
+                'main_guest_id': b.main_guest_id,
+                'check_in_date': b.check_in_date,
+                'check_out_date': b.check_out_date,
+                'status': b.status,
+                'discount': float(b.discount) if b.discount else 0.0,
+                'price': float(b.price) if b.price else 0.0,
+                'guest_ids': [g.id for g in b.guests]
+            }
+            result.append(booking_data)
+        return jsonify(result)
 
     # Для POST-запроса
     data = request.get_json()
     if 'price' not in data:
-        data['price'] = 0.00  # Устанавливаем значение по умолчанию, если цена не указана
+        data['price'] = 0.00
         
-    booking = Booking(**data)
-    db.session.add(booking)
-    db.session.commit()
-    return jsonify({"id": booking.id}), 201
+    try:
+        # Создаем бронирование
+        booking = Booking(
+            room_id=data['room_id'],
+            main_guest_id=data['main_guest_id'],
+            check_in_date=data['check_in_date'],
+            check_out_date=data['check_out_date'],
+            status=data.get('status', 'confirmed'),
+            price=data['price']
+        )
+        db.session.add(booking)
+        db.session.flush()  # Получаем ID бронирования
+        
+        # Добавляем всех гостей
+        guest_ids = data.get('guest_ids', [data['main_guest_id']])
+        for guest_id in guest_ids:
+            bg = BookingGuest(booking_id=booking.id, guest_id=guest_id)
+            db.session.add(bg)
+        
+        db.session.commit()
+        return jsonify({"id": booking.id}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
+    
 @app.route('/bookings/<int:booking_id>', methods=['GET', 'PUT', 'DELETE'])
 def booking(booking_id):
     booking = Booking.query.get(booking_id)

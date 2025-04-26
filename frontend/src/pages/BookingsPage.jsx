@@ -11,7 +11,7 @@ export default function BookingPage() {
         check_in_date: "",
         check_out_date: ""
     });
-    const [actionType, setActionType] = useState(""); // "booking", "checkin", "edit"
+    const [actionType, setActionType] = useState("");
     const [editingBooking, setEditingBooking] = useState(null);
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
@@ -62,7 +62,6 @@ export default function BookingPage() {
         const diffTime = Math.abs(endDate - startDate);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
-        // Получаем цену для категории номера (в нижнем регистре для унификации)
         const roomCategory = selectedRoom.category.toLowerCase();
         const dailyPrice = roomPrices[roomCategory] || 0;
         
@@ -78,9 +77,12 @@ export default function BookingPage() {
 
         if (!activeBooking) return { status: "available", booking: null };
 
-        // Получаем информацию о гостях
-        const mainGuest = guests.find(g => g.id === activeBooking.main_guest_id);
-        const guestNames = mainGuest ? [mainGuest.name] : [];
+        // Получаем информацию о всех гостях
+        const allGuestIds = activeBooking.guest_ids || [activeBooking.main_guest_id];
+        const guestNames = allGuestIds.map(id => {
+            const guest = guests.find(g => g.id === id);
+            return guest ? guest.name : "Неизвестный гость";
+        });
 
         return {
             status: activeBooking.status === "confirmed" ? "booked" : "occupied",
@@ -94,7 +96,6 @@ export default function BookingPage() {
         const newErrors = {};
         const today = new Date().toISOString().split('T')[0];
 
-        // Проверка дат
         if (!bookingDates.check_in_date) {
             newErrors.check_in_date = "Укажите дату заезда";
         } else if (bookingDates.check_in_date < today) {
@@ -107,7 +108,6 @@ export default function BookingPage() {
             newErrors.check_out_date = "Дата выезда должна быть после даты заезда";
         }
 
-        // Проверка гостей
         if (selectedGuests.length === 0) {
             newErrors.guests = "Выберите хотя бы одного гостя";
         } else if (selectedGuests.length > selectedRoom.capacity) {
@@ -129,7 +129,8 @@ export default function BookingPage() {
                 check_in_date: bookingDates.check_in_date,
                 check_out_date: bookingDates.check_out_date,
                 status: actionType === "booking" ? "confirmed" : "checked_in",
-                price: totalPrice
+                price: totalPrice,
+                guest_ids: selectedGuests
             };
 
             if (editingBooking) {
@@ -201,14 +202,6 @@ export default function BookingPage() {
         setTotalPrice(0);
     };
 
-    // Получение имен гостей по ID
-    const getGuestNames = (guestIds) => {
-        return guestIds.map(id => {
-            const guest = guests.find(g => g.id === id);
-            return guest ? guest.name : "Неизвестный гость";
-        }).join(", ");
-    };
-
     // Отображение информации о номере
     const renderRoomInfo = (room) => {
         const { status, booking, guestNames } = getRoomStatus(room);
@@ -218,7 +211,6 @@ export default function BookingPage() {
             occupied: "Занят"
         }[status];
 
-        // Получаем цену для категории номера
         const roomCategory = room.category.toLowerCase();
         const dailyPrice = roomPrices[roomCategory] || 0;
 
@@ -238,7 +230,7 @@ export default function BookingPage() {
                 
                 {booking && (
                     <div style={{ marginTop: "10px" }}>
-                        <p>Гости: {guestNames}</p>
+                        <p>Гости: {guestNames.join(", ")}</p>
                         <p>Дата заезда: {new Date(booking.check_in_date).toLocaleDateString()}</p>
                         <p>Дата выезда: {new Date(booking.check_out_date).toLocaleDateString()}</p>
                         <p>Общая стоимость: {booking.price} руб.</p>
@@ -337,7 +329,6 @@ export default function BookingPage() {
     const renderBookingModal = () => {
         if (!selectedRoom) return null;
 
-        // Получаем цену для категории номера
         const roomCategory = selectedRoom.category.toLowerCase();
         const dailyPrice = roomPrices[roomCategory] || 0;
 

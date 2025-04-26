@@ -101,13 +101,6 @@ export async function deleteRoom(id) {
   return res.json();
 }
 
-// Bookings API
-export async function getBookings() {
-  const res = await fetch(`${API_URL}/bookings`);
-  if (!res.ok) throw new Error("Ошибка при загрузке бронирований");
-  return res.json();
-}
-
 export async function updateBooking(id, data) {
   const res = await fetch(`${API_URL}/bookings/${id}`, {
     method: 'PUT',
@@ -144,7 +137,8 @@ export async function createBooking(data) {
       check_in_date: new Date(data.check_in_date).toISOString().split('T')[0],
       check_out_date: new Date(data.check_out_date).toISOString().split('T')[0],
       status: data.status || 'confirmed',
-      price: data.price
+      price: data.price,
+      guest_ids: data.guest_ids || [data.main_guest_id]
     })
   });
   if (!res.ok) {
@@ -153,7 +147,13 @@ export async function createBooking(data) {
   }
   return res.json();
 }
-// Prices API (ДОБАВЛЕНО)
+
+export async function getBookings() {
+  const res = await fetch(`${API_URL}/bookings`);
+  if (!res.ok) throw new Error("Ошибка при загрузке бронирований");
+  return res.json();
+}
+
 export async function getPrices() {
   const res = await fetch(`${API_URL}/prices`);
   if (!res.ok) throw new Error("Ошибка при загрузке цен");

@@ -30,10 +30,12 @@ class Booking(db.Model):
     check_out_date = db.Column(db.Date, nullable=False)
     status = db.Column(db.String(50), default='pending', nullable=False)
     discount = db.Column(db.Numeric(5, 2), nullable=False, default=0.00)
+    price = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
 
     room = db.relationship('Room', backref=db.backref('bookings', lazy=True))
     main_guest = db.relationship('Guest', backref=db.backref('main_bookings', lazy=True))
-    price = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
+    guests = db.relationship('Guest', secondary='bookingGuests', backref=db.backref('bookings', lazy=True))
+
 class BookingGuest(db.Model):
     __tablename__ = 'bookingGuests'
 
@@ -41,8 +43,8 @@ class BookingGuest(db.Model):
     booking_id = db.Column(db.Integer, db.ForeignKey('bookings.id'), nullable=False)
     guest_id = db.Column(db.Integer, db.ForeignKey('guests.id'), nullable=False)
 
-    booking = db.relationship('Booking', backref=db.backref('booking_guests', lazy=True))
-    guest = db.relationship('Guest', backref=db.backref('booking_guests', lazy=True))
+    booking = db.relationship('Booking', backref=db.backref('booking_guest_associations', lazy=True))
+    guest = db.relationship('Guest', backref=db.backref('booking_guest_associations', lazy=True))
 
 class Price(db.Model):
     __tablename__ = 'prices'
